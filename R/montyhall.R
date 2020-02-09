@@ -16,7 +16,7 @@
 #' @param nrevealdif Number of doors Monty does not reveal between player decisions 1 and 2.
 #' @param prize.index Door index for prize location in each game.
 #' @param selectdec1 Either "random" or a door index to choose for decision 1.
-#' @param doorswitch Whether the player switches their door choice. Either "always" (100%) or some number between 0-1.
+#' @param doorswitch Whether the player switches their door choice. Either "always" (100%) or some number between 0-100 (percent chance to switch).
 #' @param montyselect Indices of doors Monty reveals between decisions 1 and 2.
 #' @param verbose.results Whether to return iteration/game details alongside results.
 #' @return A vector of game results, with simulation details if verbose.results = TRUE.
@@ -70,12 +70,27 @@ mhsim <- function(niter = 100, seed = 1, ndoors = 3,
     # run decision 2
     doorexclude2 <- c(mselect, dec1select)
     doorremain2 <- doorseq[!doorseq %in% doorexclude2]
-    if(doorswitch == "always"){
+    # parse switch likelihood
+    switchassess <- "switch"
+    if(is.numeric(doorswitch) & doorswitch >= 0 & doorswitch <= 1){
+      ssvar <- sample(c(rep("a", doorswitch), rep("b", 100 - doorswitch)), 1)
+      switchassess <- ifelse(ssvar == "a", "switch", "stay")
+    } else{
+      if(doorswitch == "always"){
+        switchassess <- "switch"
+      } else{
+        stop("Invalid doorswitch value.")
+      }
+    }
+    # get decision 2
+    if(switchassess == "switch"){
       if(length(doorremain2) > 1){
         dec2select <- sample(doorremain2, ndec2)
       } else{
         dec2select <- doorremain2
       }
+    } else{
+      dec2select <- dec1select
     }
     # evaluate results
     lr <- c(lr, ifelse(dec2select == which.prize, "win", "loss"))
