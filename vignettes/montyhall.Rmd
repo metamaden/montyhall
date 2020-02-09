@@ -1,0 +1,193 @@
+---
+title: 'Simulating and breaking the Monty Hall Problem'
+author: "Sean Maden"
+date: "2/3/2020"
+output: html_document
+---
+
+```{r setup, include = FALSE, eval = TRUE}
+knitr::opts_chunk$set(eval = FALSE, echo = TRUE)
+library(montyhall)
+```
+
+On a gameshow stage before you wait three closed doors, behind which have been deposited 2 goats and one prize, respectively. You are called on to pick a door to open and reveal either a goat or a prize. Monty Hall, the gameshow's host, proceeds to reveal a goat behind one of the two unpicked doors. You must then decide whether to stick with your original choice or switch to the final unpicked door. What do you do?
+
+This is the [Monty Hall Problem](https://en.wikipedia.org/wiki/Monty_Hall_problem), a kind of logic puzzle involving conditional probability. Assuming you value prizes over goats, it can be readily shown that you should *always* switch whichever door you've initially picked to maximize your success probability. If you stick with your first choice, your success probability never exceeds 1 out of 3 tries, while switching increases your probability to 2 out of 3, a pretty substantial increase!
+
+It's telling that the Monty Hall Problem still serves as a good brain teaser to this day. Given its simple rules and decision parameters, it's a problem that lends itself to programmatic simulation. I wrote a script to allow exploration of this problem. The full code with plotting utilities is available at the project's GitHub repo. We can use this simulation to illustrate some features and ways of thinking about the problem, including better ways of intuiting the answer should we forget!
+
+# The simulation function
+
+The simulation function, `runmh()`, runs iterations of the Monty Hall problem with various allowances for changing underlying parameters. As written, the function is overkill for the clssic problem parameters, but I wanted to allow for tweaking the underlying rules of the problem to better simulate their impact on win chances (or "fract.win" as I've labeled it).
+
+The important function parameters are the `niter` and `seed` parameters. Setting these and running the default arguments will simulate the classic problem parameters. The `niter` argument specifies the number of game iterations to simulate, and `seed` specifies the manual seed value passed to `set.seed()`. Setting a specified seed is important because it allows for *exact* replication of run results where randomness is implemented. In the simulation function I utilized R's `sample` function to randomize player door selections and Monty's door reveals.
+
+I'll walk through the logic of the function below, or you can skip ahead to my results in the next section. First, we need to set up the problem:
+
+```{r mh_setup}
+set.seed(seed)
+lr <- c() # new return object
+if(verbose.results){
+  lv <- list()
+}
+doorseq <- seq(1, ndoors, 1)
+```
+
+This first sets the specified seed, then instantiates both `lr`, the object to return (by default, a vector of game outcomes), and `doorseq`, a numeric sequence of the door indices. Naturally, this sequence is a function of the `ndoors` argument, or the specified total number of doors for the problem.
+
+Next, we run interations in a for loop. Although this task could be expedited with parallelization and [multithreading](https://en.wikipedia.org/wiki/Thread_(computing)#Multithreading), for instance with the [`pools`](https://cran.r-project.org/web/packages/pool/index.html) R package, this would not be a strictly replicable solution because the order of game outcomes returned would not be predetermined even with the same specified seed. This point is somewhat moot because win fraction is likely be the most interesting part of the simulation. If the simulation needed a lot more memory to run, parallelization with multithreading would more likely be worth the effort.
+
+Within an iteration, we have the key stages of the game. First, the prize door index is set.
+
+```{r mh_setprize}
+which.prize <- sample(doorseq, nprize)
+```
+
+Next, the first decision is made by the contestant, and a door is picked.
+
+```{r, mh_decision1}
+if(selectdec1 == "random"){
+  dec1select <- sample(doorseq, ndec1)
+} else{
+  if(is.numeric(selectdec1) & selectdec1 %in% doorseq){
+    dec1select <- selectdec1
+  } else{
+    stop("Invalid decision 1 selectoin specified.")
+  }
+}
+```
+
+By default, the door picked is random. The user can also specify a specific door index to choose. Note the function stops if a door outside the possible index list is picked, or if the input is not numeric.
+
+Next, Monty reveals the specified number of doors.
+```{r mh_montypick}
+doorremain1 <- doorseq[!doorseq == dec1select]
+nr <- length(doorremain1) - nrevealdif
+if(nr < 0 | nr > length(doorremain1) - 1){
+  stop("Too many revealed doors. Decrease nrevealdif.")
+}
+if(montyselect == "random"){
+  mdooroptions <- doorremain1[!doorremain1 %in% which.prize]
+  if(length(mdooroptions) < 2){
+    mselect <- mdooroptions
+  } else{
+    mselect <- sample(mdooroptions, nr)
+  }
+}
+```
+
+We check that the number of remaining "non-revealed" doors specified by `nrevealdif` is valid for the problem, then proceed to either specify a random set ofdoor indices to reveal or the only remaining valid door.
+
+Finally, the player's second decision is made, and the outcome is evaluated and stored.
+
+```{r mh_decision2}
+doorexclude2 <- c(mselect, dec1select)
+doorremain2 <- doorseq[!doorseq %in% doorexclude2]
+if(doorswitch == "always"){
+  if(length(doorremain2) > 1){
+    dec2select <- sample(doorremain2, ndec2)
+  } else{
+    dec2select <- doorremain2
+  }
+}
+# evaluate results
+lr <- c(lr, ifelse(dec2select == which.prize, "win", "loss"))
+```
+
+I've included a `verbose.results` option that stores the granual game details for each iteration alongside outcome. I mainly used this for bug squashing.
+
+# Simulation results
+
+We'll start small by running just 5 simulations, each consisting of 2 game iterations. Since we'll be doing a few of these runs, we'll wrap operations into a function `getfw` and store our results. Our seed will simply be a sequence from 1 to `nsimulations` in each run.
+
+```{r mhbasic1}
+simi <- 5; iteri <- 2
+lr <- list()
+
+getfw = function(nsimulations = 5, niterations = 2, ndoors = 3){
+  fw <- c() # win fractions across simulations
+  for(s in 1:nsimulations){
+    lrs <- runmh(seed = s, niter = niterations, ndoors = ndoors)
+    fw <- c(fw, length(which(lrs == "win"))/length(lrs))
+  }
+  return(fw)
+}
+
+fw <- getfw()
+lr[[paste0(simi, ";", iteri)]] <- fw
+hist(fw, main = paste0(simi," simulations, ", iteri, " iterations"))
+
+```
+
+With so few iterations and simulations overall, there's huge variance in the win fraction (x-axis, above). Increasing iterations and simulations each to 100 already shows the distribution converging on the expected win frequency of 0.66.
+
+```{r mhbasic2}
+simi <- 100; iteri <- 100
+fw <- getfw(simi, iteri)
+lr[[paste0(simi, ";", iteri)]] <- fw
+hist(fw, main = paste0(simi," simulations, ", iteri, " iterations"))
+```
+
+Further increase to 1,000 simulations and iterations results in a more clearly normal distribution with much tighter standard deviation.
+
+```{r mhbasic3}
+simi <- 1000; iteri <- 1000
+t1 <- Sys.time()
+fw <- getfw(simi, iteri)
+tdif <- t1 - Sys.time()
+lr[[paste0(simi, ";", iteri)]] <- fw
+hist(fw, main = paste0(simi," simulations, ", iteri, " iterations"))
+```
+
+This completes in roughly 20 seconds to boot. If you prefer to be more precise about the increase in normalcy, we can show greater distribution normalcy by high confidence from the 
+[Shapiro-Wilk Normality test](https://en.wikipedia.org/wiki/Shapiro%E2%80%93Wilk_test)
+with `shapiro.test`, where we test the null hypothesis that data were drawn from a normal distribution.
+
+```{r st_mhbasic}
+shapiro.test(lr[["5;2"]])$p.value
+shapiro.test(lr[["100;100"]])$p.value
+shapiro.test(lr[["1000;1000"]])$p.value
+```
+
+With increased simulations and iterations, our p-value increase. This increase means decreased confidence in our alternative hypothesis (non-normalcy) due to the underlying convergence of results on a normal distribution.
+
+# The "many doors" extrapolation mnemonic
+
+One of the more useful [mnemonic devices](https://en.wikipedia.org/wiki/Mnemonic) I've encountered for intuiting the answer to the Monty Hall Problem is to increase the number of doors. Maybe we're unsure if switching doors will increase our odds when there are just 3 doors. But if there are 100 doors and Monty reveals goats behind 98 of them, it's much clearer that switching will increase our odds.
+
+With the simulation code, we can readily visualize the effect of increasing door quantity on our win odds if we always switch. Below, I store the results of running 100 simulations with 100 iterations each, where each test includes total doors ranging from 3 to 100.
+
+```{r mh_doorvary_sim}
+# get fwin dist across ndoors
+simi = 100; iteri = 100
+ndoorl <- seq(3, 103, 10)
+seedl <- seq(1, 100, 1)
+lnd <- list()
+t1 <- Sys.time()
+for(nd in ndoorl){
+  fw <- getfw(simi, iteri, nd)
+  lnd[[paste0(nd)]] <- fw
+}
+tdif <- Sys.time() - t1
+```
+
+This completes in under 4 seconds. We can then view the results in a few types of useful visualizations, including violin plots, ridge density plots, and a line plot showing the min, mean, and max win fractions by door quantities. I've wrapped the code to accomplish this in a function, `getprettyplots()`, but suffice to say I made good use of the super-useful [`ggplot2`](https://cran.r-project.org/web/packages/ggplot2/index.html), [`gridExtra`](https://cran.r-project.org/web/packages/gridExtra/index.html), and [`ggridges`](https://cran.r-project.org/web/packages/ggridges/index.html) R packages.
+
+```{r mh_doorvary_plots}
+getprettyplots(lnd, "Varying door count")
+```
+
+Something interesting these plots make clear is that the mean of win fractions converges before the standard deviation. Also clear is the visual contrast between win likelihood tendencies at the minimum (3) and maximum (100) door quantities. This is a quantitative way of showing the utility of the "many doors" extrapolation mnemonic.
+
+# Bending the rules
+
+Now let's explore what happens by changing some of the underlying rules. First, we can assess the impact of increasing the number of prizes from 1. We'll also claim that Monty is allowed to reveal up to N - 1 prizes where N is the total number of prizes behind doors for the game iteration.
+
+# What happens without randomness?
+
+The canonical or classical formulation of the Monty Hall Problem hinges on implied randomness. Presumably, the prize is hidden behind a random door, and the player is more or less initially picking an initial door at random. But what happens to our win fractions without randomness? For instance, what if the prize is always behind the first door? Or what happens if the player always selects the second door first? Let's find out!
+
+In describing the simulation function, I noted where I used randomness with `sample`. Some additional arguments let us play with the randomness.
+
+
+
