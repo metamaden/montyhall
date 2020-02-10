@@ -16,7 +16,7 @@
 #' @param nrevealdif Number of doors Monty does not reveal between player decisions 1 and 2.
 #' @param prize.index Door index for prize location in each game.
 #' @param selectdec1 Either "random" or a door index to choose for decision 1.
-#' @param doorswitch Whether the player switches their door choice. Either "always" (100%) or some number between 0-100 (percent chance to switch).
+#' @param doorswitch Some number between 0-100 (percent chance to switch). Defaults to 1 (100%).
 #' @param montyselect Indices of doors Monty reveals between decisions 1 and 2.
 #' @param verbose.results Whether to return iteration/game details alongside results.
 #' @return A vector of game results, with simulation details if verbose.results = TRUE.
@@ -24,7 +24,7 @@
 mhsim <- function(niter = 100, seed = 1, ndoors = 3, 
                   nprize = 1, ndec1 = 1, ndec2 = 1,
                   nrevealdif = 1, prize.index = NULL,
-                  selectdec1 = "random", doorswitch = "always", 
+                  selectdec1 = "random", doorswitch = 1, 
                   montyselect = "random", verbose.results = FALSE){
   set.seed(seed)
   lr <- c() # new return object
@@ -73,17 +73,14 @@ mhsim <- function(niter = 100, seed = 1, ndoors = 3,
     # parse switch likelihood
     switchassess <- "switch"
     if(is.numeric(doorswitch) & doorswitch >= 0 & doorswitch <= 1){
-      ssvar <- sample(c(rep("a", doorswitch), rep("b", 100 - doorswitch)), 1)
-      switchassess <- ifelse(ssvar == "a", "switch", "stay")
+      ssvar <- ifelse(doorswitch == 1, "switch", 
+             sample(c(rep("switch", 100*doorswitch), 
+                      rep("stay", 100 - 100*doorswitch)), 1))
     } else{
-      if(doorswitch == "always"){
-        switchassess <- "switch"
-      } else{
-        stop("Invalid doorswitch value.")
-      }
+      stop("Invalid doorswitch value.")
     }
     # get decision 2
-    if(switchassess == "switch"){
+    if(ssvar == "switch"){
       if(length(doorremain2) > 1){
         dec2select <- sample(doorremain2, ndec2)
       } else{
@@ -109,6 +106,31 @@ mhsim <- function(niter = 100, seed = 1, ndoors = 3,
     return(lr) # return iterations results
   }
 }
+
+# Win fractions utility
+
+#' Compute game win frequencies across game simulations of the Monty Hall Problem.
+#'
+#' Wrapper to compute win frequencies across simulations.
+#' @param nsimulations Number of simulations to run.
+#' @param niterations Number of iterations/games per simulation run.
+#' @param ndoors Quantity of doors per game.
+#' @param prize.index Door index for prize in each game.
+#' @param doorswitch Frequency (0 - 100%) with which player switches doors when given the option.
+#' @param nprize Total prizes per game.
+#' @return Vector of win fractions across simulations run, reflecting the numnber of iterations "won" over the total for that simulation.
+#' @export
+getfw = function(nsimulations = 5, niterations = 2, ndoors = 3, 
+                 prize.index = NULL, doorswitch = 1, nprize = 1){
+  fw <- c() # vector of win fractions across simulations
+  for(s in 1:nsimulations){
+    lrs <- mhsim(seed = s, niter = niterations, ndoors = ndoors,
+                 prize.index = prize.index, doorswitch = doorswitch, nprize = nprize)
+    fw <- c(fw, length(which(lrs == "win"))/length(lrs))
+  }
+  return(fw)
+}
+
 
 # Visualization utilities
 
@@ -140,21 +162,29 @@ getggdat <- function(ld){
 #'
 #' Takes a list of win fractions and results the data in ggplot2 line plot function-ready format.
 #' @param ld List of win fractions. 
+#' @param ribbontype How to calculate gray ribbon ovelay. Either "sd" for standard deviation, or "minmax" for min and max of run.
 #' @return Formatted dataset.
 #' @export
-getlinedat <- function(ld){
+getlinedat <- function(ld, ribbontype = "sd", xtitle = "ndoors"){
   dfp <- matrix(nrow = 0, ncol = 4)
   for(i in 1:length(lnd)){
     dati <- lnd[[i]]
     ndi <- as.numeric(names(lnd)[i])
-    mindat <- min(dati)
-    maxdat <- max(dati)
     meandat <- mean(dati)
+    # parse ribbon overlay
+    if(ribbontype == "sd"){
+      mindat <- meandat - sd(dati)
+      maxdat <- meandat + sd(dati)
+    }
+    if(ribbontype == "minmax"){
+      mindat <- min(dati)
+      maxdat <- max(dati)
+    }
     lmi <- matrix(c(meandat, maxdat, mindat, ndi), nrow = 1)
     dfp <- rbind(dfp, lmi)
   }
   dfp <- as.data.frame(dfp, stringsAsFactors = F)
-  colnames(dfp) <- c("fract.win", "max", "min", "ndoors")
+  colnames(dfp) <- c("fract.win", "max", "min", xtitle)
   return(dfp)
 }
 
@@ -162,14 +192,28 @@ getlinedat <- function(ld){
 #'
 #' Generates ggplot2 line plot object from the list of win fraction results.
 #' @param ld List of win fractions. 
+#' @param ptitle Plot main title from `ggtitle()`.
+#' @param xlim Vector of 2 x-axis coordinates (min and max), or NULL.
+#' @param ylim Vector of 2 y-axis coordinates (min and max) or NULL.
 #' @return Line plot object.
 #' @export
-getlineplot <- function(ld){
+getlineplot <- function(ld, ptitle = "Plot title",
+                        xlim = NULL, ylim = NULL, xlab = "ndoors"){
   dfp <- getlinedat(ld)
-  plp <- ggplot(dfp, aes(ndoors)) +
-    geom_line(aes(y = fract.win), colour = "blue") + 
-    geom_ribbon(aes(ymin = min, ymax = max), alpha = 0.2) +
-    theme_bw()
+  if(is.null(xlim) & is.null(ylim)){
+    plp <- ggplot(dfp, aes(ndoors)) +
+      geom_line(aes(y = fract.win), colour = "blue") + 
+      geom_ribbon(aes(ymin = min, ymax = max), alpha = 0.2) +
+      theme_bw() + ggtitle(ptitle) + xlab(xlab)
+  }
+  if(!is.null(xlim) & !is.null(ylim)){
+    plp <- ggplot(dfp, aes(ndoors)) +
+      geom_line(aes(y = fract.win), colour = "blue") + 
+      geom_ribbon(aes(ymin = min, ymax = max), alpha = 0.2) +
+      theme_bw() + ggtitle(ptitle) +
+      ylim(ylim[1], ylim[2]) +
+      xlim(xlim[1], xlim[2]) + xlab(xlab)
+  }
   return(plp)
 }
 
@@ -195,7 +239,7 @@ getprettyplots <- function(ld, topmain = "Top Title"){
     ggtitle("Ridge plots")
   
   # line plot
-  p3 <- getlineplot(ld)
+  p3 <- getlineplot(ld, ptitle = "")
   
   # make the composite plot
   grid.arrange(p1, p2, p3, ncol = 3, top = topmain)

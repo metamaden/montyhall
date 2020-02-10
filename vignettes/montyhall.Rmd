@@ -6,8 +6,196 @@ output: html_document
 ---
 
 ```{r setup, include = FALSE, eval = TRUE}
-knitr::opts_chunk$set(eval = FALSE, echo = TRUE)
-library(montyhall)
+# require(devtools); install_github("metamaden/montyhall")
+
+# library(montyhall)
+
+knitr::opts_chunk$set(eval = TRUE, echo = TRUE)
+```
+
+```{r func, echo = FALSE}
+library(ggplot2)
+library(gridExtra)
+library(ggridges)
+
+mhsim <- function(niter = 100, seed = 1, ndoors = 3, 
+                  nprize = 1, ndec1 = 1, ndec2 = 1,
+                  nrevealdif = 1, prize.index = NULL,
+                  selectdec1 = "random", doorswitch = 1, 
+                  montyselect = "random", verbose.results = FALSE){
+  set.seed(seed)
+  lr <- c() # new return object
+  if(verbose.results){
+    lv <- list()
+  }
+  doorseq <- seq(1, ndoors, 1)
+  for(i in 1:niter){
+    # pick prize
+    if(is.null(prize.index)){
+      which.prize <- sample(doorseq, nprize)
+    } else{
+      if(prize.index %in% doorseq){
+        which.prize <- prize.index
+      } else{
+        stop("Invalid prize index specified.")
+      }
+    }
+    # run decision 1
+    if(selectdec1 == "random"){
+      dec1select <- sample(doorseq, ndec1)
+    } else{
+      if(is.numeric(selectdec1) & selectdec1 %in% doorseq){
+        dec1select <- selectdec1
+      } else{
+        stop("Invalid decision 1 selectoin specified.")
+      }
+    }
+    # run montyselect
+    doorremain1 <- doorseq[!doorseq == dec1select]
+    nr <- length(doorremain1) - nrevealdif
+    if(nr < 0 | nr > length(doorremain1) - 1){
+      stop("Too many revealed doors. Decrease nrevealdif.")
+    }
+    if(montyselect == "random"){
+      mdooroptions <- doorremain1[!doorremain1 %in% which.prize]
+      if(length(mdooroptions) < 2){
+        mselect <- mdooroptions
+      } else{
+        mselect <- sample(mdooroptions, nr)
+      }
+    }
+    # run decision 2
+    doorexclude2 <- c(mselect, dec1select)
+    doorremain2 <- doorseq[!doorseq %in% doorexclude2]
+    # parse switch likelihood
+    switchassess <- "switch"
+    if(is.numeric(doorswitch) & doorswitch >= 0 & doorswitch <= 1){
+      ssvar <- ifelse(doorswitch == 1, "switch", 
+             sample(c(rep("switch", 100*doorswitch), 
+                      rep("stay", 100 - 100*doorswitch)), 1))
+    } else{
+      stop("Invalid doorswitch value.")
+    }
+    # get decision 2
+    if(ssvar == "switch"){
+      if(length(doorremain2) > 1){
+        dec2select <- sample(doorremain2, ndec2)
+      } else{
+        dec2select <- doorremain2
+      }
+    } else{
+      dec2select <- dec1select
+    }
+    # evaluate results
+    lr <- c(lr, ifelse(dec2select == which.prize, "win", "loss"))
+    if(verbose.results){
+      lv[[length(lv) + 1]] <- list("which.prize" = which.prize,
+                                   "dec1select" = dec1select,
+                                   "nr" = nr,
+                                   "montyselect" = mselect,
+                                   "dec2select" = dec2select)
+    }
+  }
+  
+  if(verbose.results){
+    return(list("results" = lr, "details" = lv))
+  } else{
+    return(lr) # return iterations results
+  }
+}
+
+getfw = function(nsimulations = 5, niterations = 2, ndoors = 3, 
+                 prize.index = NULL, doorswitch = 1, nprize = 1){
+  fw <- c() # vector of win fractions across simulations
+  for(s in 1:nsimulations){
+    lrs <- mhsim(seed = s, niter = niterations, ndoors = ndoors,
+                 prize.index = prize.index, doorswitch = doorswitch, nprize = nprize)
+    fw <- c(fw, length(which(lrs == "win"))/length(lrs))
+  }
+  return(fw)
+}
+
+getggdat <- function(ld){
+  dfp <- matrix(nrow = 0, ncol = 2)
+  for(i in 1:length(lnd)){
+    nrep <- length(lnd[[i]])
+    ndi <- as.numeric(names(lnd)[i])
+    ndv <- rep(as.numeric(ndi), nrep)
+    dati <- lnd[[i]]
+    lmi <- matrix(c(dati, ndv), ncol = 2, byrow = FALSE)
+    dfp <- rbind(dfp, lmi)
+  }
+  dfp <- as.data.frame(dfp, stringsAsFactors = F)
+  colnames(dfp) <- c("fract.win", "ndoors")
+  ulvl <- unique(dfp[,2])
+  olvl <- ulvl[order(unique(dfp[,2]))]
+  dfp[,2] <- factor(dfp[,2], levels = olvl)
+  return(dfp)
+}
+
+getlinedat <- function(ld, ribbontype = "sd", xtitle = "ndoors"){
+  dfp <- matrix(nrow = 0, ncol = 4)
+  for(i in 1:length(lnd)){
+    dati <- lnd[[i]]
+    ndi <- as.numeric(names(lnd)[i])
+    meandat <- mean(dati)
+    # parse ribbon overlay
+    if(ribbontype == "sd"){
+      mindat <- meandat - sd(dati)
+      maxdat <- meandat + sd(dati)
+    }
+    if(ribbontype == "minmax"){
+      mindat <- min(dati)
+      maxdat <- max(dati)
+    }
+    lmi <- matrix(c(meandat, maxdat, mindat, ndi), nrow = 1)
+    dfp <- rbind(dfp, lmi)
+  }
+  dfp <- as.data.frame(dfp, stringsAsFactors = F)
+  colnames(dfp) <- c("fract.win", "max", "min", xtitle)
+  return(dfp)
+}
+
+getlineplot <- function(ld, ptitle = "Plot title",
+                        xlim = NULL, ylim = NULL, xlab = "ndoors"){
+  dfp <- getlinedat(ld)
+  if(is.null(xlim) & is.null(ylim)){
+    plp <- ggplot(dfp, aes(ndoors)) +
+      geom_line(aes(y = fract.win), colour = "blue") + 
+      geom_ribbon(aes(ymin = min, ymax = max), alpha = 0.2) +
+      theme_bw() + ggtitle(ptitle) + xlab(xlab)
+  }
+  if(!is.null(xlim) & !is.null(ylim)){
+    plp <- ggplot(dfp, aes(ndoors)) +
+      geom_line(aes(y = fract.win), colour = "blue") + 
+      geom_ribbon(aes(ymin = min, ymax = max), alpha = 0.2) +
+      theme_bw() + ggtitle(ptitle) +
+      ylim(ylim[1], ylim[2]) +
+      xlim(xlim[1], xlim[2]) + xlab(xlab)
+  }
+  return(plp)
+}
+
+getprettyplots <- function(ld, topmain = "Top Title"){
+  # fromat results data
+  dfp <- getggdat(ld)
+  
+  # violin plots
+  p1 <- ggplot(dfp, aes(x = ndoors, y = fract.win, fill = ndoors)) +
+    geom_violin() + theme_bw() + theme(legend.position = "none") +
+    ggtitle("Violin plots")
+  
+  # ridge plots
+  p2 <- ggplot(dfp, aes(x = fract.win, y = ndoors, fill = ndoors)) +
+    geom_density_ridges() + theme_bw() + theme(legend.position = "none") +
+    ggtitle("Ridge plots")
+  
+  # line plot
+  p3 <- getlineplot(ld, ptitle = "")
+  
+  # make the composite plot
+  grid.arrange(p1, p2, p3, ncol = 3, top = topmain)
+}
 ```
 
 On a gameshow stage before you wait three closed doors, behind which have been deposited 2 goats and one prize, respectively. You are called on to pick a door to open and reveal either a goat or a prize. Monty Hall, the gameshow's host, proceeds to reveal a goat behind one of the two unpicked doors. You must then decide whether to stick with your original choice or switch to the final unpicked door. What do you do?
@@ -18,124 +206,108 @@ It's telling that the Monty Hall Problem still serves as a good brain teaser to 
 
 # The simulation function
 
-The simulation function, `runmh()`, runs iterations of the Monty Hall problem with various allowances for changing underlying parameters. As written, the function is overkill for the clssic problem parameters, but I wanted to allow for tweaking the underlying rules of the problem to better simulate their impact on win chances (or "fract.win" as I've labeled it).
+The simulation function, `runmh()`, runs iterations of the Monty Hall problem with various allowances for changing underlying parameters. I wrote the function to allow for tweaking the underlying rules of the problem, which I explore below. Running it with default parameters is equivalent to what I'll call the "canonical/classic" formulation of the Monty Hall Problem, which has the following rules:
 
-The important function parameters are the `niter` and `seed` parameters. Setting these and running the default arguments will simulate the classic problem parameters. The `niter` argument specifies the number of game iterations to simulate, and `seed` specifies the manual seed value passed to `set.seed()`. Setting a specified seed is important because it allows for *exact* replication of run results where randomness is implemented. In the simulation function I utilized R's `sample` function to randomize player door selections and Monty's door reveals.
+1. Three doors total, behind which 1 has a prize, and the remaining 2 have goats.
+2. The player picks a door.
+3. Monty reveals one of the two remaining doors to be a goat.
+4. The player decides whether to stick with their initial choice (step 2) or switch to the last unpicked door.
+5. The final player-selected door is revealed to be either a goat or the prize.
 
-I'll walk through the logic of the function below, or you can skip ahead to my results in the next section. First, we need to set up the problem:
+Note we assume random door selection in steps 2 and 3. By default, the simulation function has the player switching their door selection to the remaining unpicked door, but I've allowed for switch frequency to be specified. To do this, set `doorswitch` to some decimal between 0 and 1 reflecting the frequency with which the player switches their door selection in step 4. By default, `doorswitch = 100`.
 
-```{r mh_setup}
-set.seed(seed)
-lr <- c() # new return object
-if(verbose.results){
-  lv <- list()
-}
-doorseq <- seq(1, ndoors, 1)
-```
+The arguments `niter` and `seed` are important to consider even when running the simulation function with defaults otherwise. The `niter` argument specifies the number of game iterations to simulate, while setting `seed` specifies the value passed to `set.seed()`. Setting the seed allows for *exact* replication of run results with the same seed, an important component for operations implementing randomness. As already mentioned, the simulation assumes random player selection in step 2 and Monty selection in step 3, with other possibilities for randomness including the player door switch frequency in step 4. I implemented randomization with the `sample` R function.
 
-This first sets the specified seed, then instantiates both `lr`, the object to return (by default, a vector of game outcomes), and `doorseq`, a numeric sequence of the door indices. Naturally, this sequence is a function of the `ndoors` argument, or the specified total number of doors for the problem.
+Formally, each game simulation (up to `niter` total simulations per run) is run in a `for` loop. This could potentially be improved with parallelization and [multithreading](https://en.wikipedia.org/wiki/Thread_(computing)#Multithreading) as with the [`pools`](https://cran.r-project.org/web/packages/pool/index.html) or [snow](https://cran.r-project.org/web/packages/snow/index.html) R packages, though there's a bit of a tradeoff. However convenient parallelization is made with specilized packages, this implies adding an extra dependency to the package and a bit more code. If the problem in question were considerably more memory taxing than the Monty Hall problem, this could justify parallelization. Another consideration is that parallelization typically breaks strict replicability of a task, since sub-tasks or jobs are returned as they finish in a non-determined fashion. Here, this means the outcome of each game simulation would change with parallelization. This point is somewhat moot because here we're primarily interested in the win fraction, but this could be important in other settings.
 
-Next, we run interations in a for loop. Although this task could be expedited with parallelization and [multithreading](https://en.wikipedia.org/wiki/Thread_(computing)#Multithreading), for instance with the [`pools`](https://cran.r-project.org/web/packages/pool/index.html) R package, this would not be a strictly replicable solution because the order of game outcomes returned would not be predetermined even with the same specified seed. This point is somewhat moot because win fraction is likely be the most interesting part of the simulation. If the simulation needed a lot more memory to run, parallelization with multithreading would more likely be worth the effort.
+Let's break down how the phases of the game are encoded within each iteration. First, the index of the prize door is specified.
 
-Within an iteration, we have the key stages of the game. First, the prize door index is set.
-
-```{r mh_setprize}
+```{r mh_setprize, eval = FALSE}
 which.prize <- sample(doorseq, nprize)
 ```
 
-Next, the first decision is made by the contestant, and a door is picked.
+The player's first decision is then simulated.
 
-```{r, mh_decision1}
-if(selectdec1 == "random"){
-  dec1select <- sample(doorseq, ndec1)
-} else{
-  if(is.numeric(selectdec1) & selectdec1 %in% doorseq){
-    dec1select <- selectdec1
-  } else{
-    stop("Invalid decision 1 selectoin specified.")
-  }
-}
+```{r, mh_decision1, eval = FALSE}
+dec1select <- sample(doorseq, ndec1)
 ```
 
-By default, the door picked is random. The user can also specify a specific door index to choose. Note the function stops if a door outside the possible index list is picked, or if the input is not numeric.
+Monty then reveals a goat. He does so either by picking between two goat-doors at random (e.g. if the player already selected the prize-door, an unlikely event), or simply picking the last remaining door with a goat (e.g. if the player picked a goat-door, a likely event).
 
-Next, Monty reveals the specified number of doors.
-```{r mh_montypick}
-doorremain1 <- doorseq[!doorseq == dec1select]
-nr <- length(doorremain1) - nrevealdif
-if(nr < 0 | nr > length(doorremain1) - 1){
-  stop("Too many revealed doors. Decrease nrevealdif.")
-}
-if(montyselect == "random"){
-  mdooroptions <- doorremain1[!doorremain1 %in% which.prize]
-  if(length(mdooroptions) < 2){
-    mselect <- mdooroptions
-  } else{
-    mselect <- sample(mdooroptions, nr)
-  }
+```{r mh_montypick, eval = FALSE}
+mdooroptions <- doorremain1[!doorremain1 %in% which.prize]
+if(length(mdooroptions) < 2){
+  mselect <- mdooroptions
+} else{
+  mselect <- sample(mdooroptions, nr)
 }
 ```
 
 We check that the number of remaining "non-revealed" doors specified by `nrevealdif` is valid for the problem, then proceed to either specify a random set ofdoor indices to reveal or the only remaining valid door.
 
-Finally, the player's second decision is made, and the outcome is evaluated and stored.
+Next, the player either switches or stays on their initial door selection. Note how switch frequency from `doorswitch` impacts the likelihood of passing `switch` or `stay` to `ssvar`.
 
-```{r mh_decision2}
+```{r mh_decision2, eval = FALSE}
 doorexclude2 <- c(mselect, dec1select)
 doorremain2 <- doorseq[!doorseq %in% doorexclude2]
-if(doorswitch == "always"){
+# parse switch likelihood
+switchassess <- "switch"
+if(is.numeric(doorswitch) & doorswitch >= 0 & doorswitch <= 1){
+  ssvar <- ifelse(doorswitch == 1, "switch", 
+         sample(c(rep("switch", doorswitch), 
+                  rep("stay", 100 - doorswitch)), 1))
+} else{
+  stop("Invalid doorswitch value.")
+}
+
+if(ssvar == "switch"){
   if(length(doorremain2) > 1){
     dec2select <- sample(doorremain2, ndec2)
   } else{
     dec2select <- doorremain2
   }
+} else{
+  dec2select <- dec1select
 }
-# evaluate results
-lr <- c(lr, ifelse(dec2select == which.prize, "win", "loss"))
 ```
 
-I've included a `verbose.results` option that stores the granual game details for each iteration alongside outcome. I mainly used this for bug squashing.
+The function then returns a vector of game outcomes (either `win` or `loss`) of length equal to `niter`. I've also included a `verbose.results` option that stores the granual game details for each iteration alongside outcome. I mainly used this for bug squashing.
 
-# Simulation results
+# Simulating the canonical/classic problem
 
 We'll start small by running just 5 simulations, each consisting of 2 game iterations. Since we'll be doing a few of these runs, we'll wrap operations into a function `getfw` and store our results. Our seed will simply be a sequence from 1 to `nsimulations` in each run.
 
 ```{r mhbasic1}
+# run simulation
 simi <- 5; iteri <- 2
 lr <- list()
-
-getfw = function(nsimulations = 5, niterations = 2, ndoors = 3){
-  fw <- c() # win fractions across simulations
-  for(s in 1:nsimulations){
-    lrs <- runmh(seed = s, niter = niterations, ndoors = ndoors)
-    fw <- c(fw, length(which(lrs == "win"))/length(lrs))
-  }
-  return(fw)
-}
-
 fw <- getfw()
 lr[[paste0(simi, ";", iteri)]] <- fw
+# make win frequency histogram
 hist(fw, main = paste0(simi," simulations, ", iteri, " iterations"))
-
 ```
 
 With so few iterations and simulations overall, there's huge variance in the win fraction (x-axis, above). Increasing iterations and simulations each to 100 already shows the distribution converging on the expected win frequency of 0.66.
 
 ```{r mhbasic2}
+# run simulation
 simi <- 100; iteri <- 100
 fw <- getfw(simi, iteri)
 lr[[paste0(simi, ";", iteri)]] <- fw
+# make win frequency histogram
 hist(fw, main = paste0(simi," simulations, ", iteri, " iterations"))
 ```
 
 Further increase to 1,000 simulations and iterations results in a more clearly normal distribution with much tighter standard deviation.
 
 ```{r mhbasic3}
+# run simulation
 simi <- 1000; iteri <- 1000
 t1 <- Sys.time()
 fw <- getfw(simi, iteri)
 tdif <- t1 - Sys.time()
 lr[[paste0(simi, ";", iteri)]] <- fw
+# make win frequency histogram
 hist(fw, main = paste0(simi," simulations, ", iteri, " iterations"))
 ```
 
@@ -144,12 +316,19 @@ This completes in roughly 20 seconds to boot. If you prefer to be more precise a
 with `shapiro.test`, where we test the null hypothesis that data were drawn from a normal distribution.
 
 ```{r st_mhbasic}
+# run normalcy tests
 shapiro.test(lr[["5;2"]])$p.value
 shapiro.test(lr[["100;100"]])$p.value
 shapiro.test(lr[["1000;1000"]])$p.value
 ```
 
 With increased simulations and iterations, our p-value increase. This increase means decreased confidence in our alternative hypothesis (non-normalcy) due to the underlying convergence of results on a normal distribution.
+
+# Bending the rules
+
+As already mentioned, the `mhsim` function was written to allow for modifying the rules and assumptions of the Monty Hall problem beyond the canonical/classical rules as stated. Some ways we can do this include increasing the total quantity of doors in the problem with `ndoors`, specifying the frequency with which a player switches to the remaining door(s) in `doorswitch`, specifying the quantity of prizes per game, and specifying where the prize is located with `prize.index`.
+
+Bending the rules of the Monty Hall Problem can help to better understand the problem in a few ways. Below, I explain the utility of increasing the door quantity to intuit that switching is *always* better than staying on the same door, under the original rules. I also explore how changing certain underlying rules impacts game win frequencies.
 
 # The "many doors" extrapolation mnemonic
 
@@ -158,7 +337,7 @@ One of the more useful [mnemonic devices](https://en.wikipedia.org/wiki/Mnemonic
 With the simulation code, we can readily visualize the effect of increasing door quantity on our win odds if we always switch. Below, I store the results of running 100 simulations with 100 iterations each, where each test includes total doors ranging from 3 to 100.
 
 ```{r mh_doorvary_sim}
-# get fwin dist across ndoors
+# get win frequencies from varying ndoors
 simi = 100; iteri = 100
 ndoorl <- seq(3, 103, 10)
 seedl <- seq(1, 100, 1)
@@ -169,25 +348,92 @@ for(nd in ndoorl){
   lnd[[paste0(nd)]] <- fw
 }
 tdif <- Sys.time() - t1
+# store the reference plot
+pref <- getlineplot(lnd, ptitle = "Canonical rules, varying doors")
 ```
 
-This completes in under 4 seconds. We can then view the results in a few types of useful visualizations, including violin plots, ridge density plots, and a line plot showing the min, mean, and max win fractions by door quantities. I've wrapped the code to accomplish this in a function, `getprettyplots()`, but suffice to say I made good use of the super-useful [`ggplot2`](https://cran.r-project.org/web/packages/ggplot2/index.html), [`gridExtra`](https://cran.r-project.org/web/packages/gridExtra/index.html), and [`ggridges`](https://cran.r-project.org/web/packages/ggridges/index.html) R packages.
+This completes in  `r round(tdif[[1]], 3)` seconds. We can then view the results in a few types of useful visualizations, including violin plots, ridge density plots, and a line plot showing the min, mean, and max win fractions by door quantities. I've wrapped the code to accomplish this in a function, `getprettyplots()`, but suffice to say I made good use of the super-useful [`ggplot2`](https://cran.r-project.org/web/packages/ggplot2/index.html), [`gridExtra`](https://cran.r-project.org/web/packages/gridExtra/index.html), and [`ggridges`](https://cran.r-project.org/web/packages/ggridges/index.html) R packages.
 
 ```{r mh_doorvary_plots}
 getprettyplots(lnd, "Varying door count")
 ```
 
-Something interesting these plots make clear is that the mean of win fractions converges before the standard deviation. Also clear is the visual contrast between win likelihood tendencies at the minimum (3) and maximum (100) door quantities. This is a quantitative way of showing the utility of the "many doors" extrapolation mnemonic.
+Something interesting these plots make clear is that the mean of win fractions converges before the standard deviation. Also clear is the visual contrast between win likelihood tendencies at the minimum (3) and maximum (100) door quantities. This is a quantitative way of showing the utility of the "many doors" extrapolation mnemonic. Below, I'll assess changing other conditions across games with varying numbers of doors.
 
-# Bending the rules
+# What if prize placement isn't random?
 
-Now let's explore what happens by changing some of the underlying rules. First, we can assess the impact of increasing the number of prizes from 1. We'll also claim that Monty is allowed to reveal up to N - 1 prizes where N is the total number of prizes behind doors for the game iteration.
+What if the prize is always behind door 1, while other conditions and assumptions are kept? That is, the player still selects a door at random (may they have amnesia, or it's a new player every game?) and they always switch to the remaining door not revealed by Monty. We can set this up by simply specifying `prize.index = 1` and reruning simulation code as above.
 
-# What happens without randomness?
+```{r mh_prizeplacement}
+# get fwin dist across ndoors
+simi = 100; iteri = 100
+ndoorl <- seq(3, 103, 10)
+seedl <- seq(1, 100, 1)
+lnd <- list()
+for(nd in ndoorl){
+  fw <- getfw(simi, iteri, nd, prize.index = 1)
+  lnd[[paste0(nd)]] <- fw
+}
+ptest <- getlineplot(lnd, ptitle = "Prize door index 1")
+# make composite with ref plot
+grid.arrange(pref, ptest, ncol = 2, top = "Setting prize door index to 1")
+```
 
-The canonical or classical formulation of the Monty Hall Problem hinges on implied randomness. Presumably, the prize is hidden behind a random door, and the player is more or less initially picking an initial door at random. But what happens to our win fractions without randomness? For instance, what if the prize is always behind the first door? Or what happens if the player always selects the second door first? Let's find out!
+We can compare results in the above composite of our reference plot with canonical rules and results from setting the prize door index to always be 1. It looks like there's negigible impact to win frequency even when the prize position is not randomized.
 
-In describing the simulation function, I noted where I used randomness with `sample`. Some additional arguments let us play with the randomness.
+# What if the player doesn't always switch?
 
+Let's now test the impact of the player switch frequency, or the frequency with which a player will either switch doors or stay with their original selection. We can vary this frequency between 0 - 100, then reassess the win frequency distributions across games varying the numbers of doors.
 
+First, let's compute 10 sets of simulations that vary the door switch rate from 0% to 100% in increments of 10% each. I'll store results line plots in the `plist` object, then make a composite of the 10 results sets and again time the operation. Note we'll set the x- and y-axis min and max values so visual comparison is easier.
+
+```{r mh_switchfreq_sim}
+# get fwin dist across ndoors
+plist <- list()
+sfreq <- seq(0, 1, 0.1)
+t1 <- Sys.time()
+for(s in sfreq){
+  simi = 100; iteri = 100
+  ndoorl <- seq(3, 103, 10)
+  seedl <- seq(1, 100, 1)
+  lnd <- list()
+  for(nd in ndoorl){
+    fw <- getfw(simi, iteri, nd, doorswitch = s)
+    lnd[[paste0(nd)]] <- fw
+  }
+  plist[[paste0(s)]] <- getlineplot(lnd, ptitle = paste0("S.F. = ", s),
+                                    xlim = c(0, 100), ylim = c(0, 1))
+  message(s)
+}
+tdif <- Sys.time() - t1
+```
+
+This run completed in `r round(tdif[[1]], 3)` seconds. Let's show results from the 10 runs in a composite plot.
+
+```{r mh_switchfreq_10sim}
+grid.arrange(plist[[1]], plist[[2]], plist[[3]],
+             plist[[4]], plist[[5]], plist[[6]],
+             plist[[7]], plist[[8]], plist[[9]],
+             plist[[10]],
+             ncol = 5)
+```
+
+Finally, we can also show the line plot of win frequency change with player switch frequency using only the canonical rules set.
+
+```{r mh_switchfreq_classic_sim}
+sfreq <- seq(0, 1, 0.1)
+t1 <- Sys.time()
+lnd <- list()
+for(s in sfreq){
+  simi = 100; iteri = 100
+  seedl <- seq(1, 100, 1)
+  fw <- getfw(simi, iteri, doorswitch = s)
+  lnd[[paste0(s)]] <- fw
+}
+getlineplot(lnd, ptitle = "Win Freq. by Switch Freq.", 
+            xlim = c(0, 1), ylim = c(0, 1), 
+            xlab = "Switch frequency")
+```
+
+That's a pretty linear win fraction increase!
 
