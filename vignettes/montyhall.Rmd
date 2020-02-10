@@ -206,7 +206,7 @@ It's telling that the Monty Hall Problem still serves as a good brain teaser to 
 
 # The simulation function
 
-The simulation function, `runmh()`, runs iterations of the Monty Hall problem with various allowances for changing underlying parameters. I wrote the function to allow for tweaking the underlying rules of the problem, which I explore below. Running it with default parameters is equivalent to what I'll call the "canonical/classic" formulation of the Monty Hall Problem, which has the following rules:
+The simulation function, `mhsim()`, runs iterations of the Monty Hall problem with various allowances for changing underlying parameters. I wrote the function to allow for tweaking the underlying rules of the problem, which I explore below. Running it with default parameters is equivalent to what I'll call the "canonical/classic" formulation of the Monty Hall Problem, which has the following rules:
 
 1. Three doors total, behind which 1 has a prize, and the remaining 2 have goats.
 2. The player picks a door.
