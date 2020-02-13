@@ -10,7 +10,7 @@
 #' @param niter Number of simulation iterations or games.
 #' @param seed Seed integer to set in `set.seed()`.
 #' @param ndoors Total quantity of doors for game simulations.
-#' @param nprize Total number of prizes for game simulations.
+#' @param nprizes Total number of prizes for game simulations.
 #' @param ndec1 Door index to *always* choose in decision 1.
 #' @param ndec2 Door index to *always* choose in decision 2.
 #' @param nrevealdif Number of doors Monty does not reveal between player decisions 1 and 2.
@@ -22,7 +22,7 @@
 #' @return A vector of game results, with simulation details if verbose.results = TRUE.
 #' @export
 mhsim <- function(niter = 100, seed = 1, ndoors = 3, 
-                  nprize = 1, ndec1 = 1, ndec2 = 1,
+                  ndec1 = 1, ndec2 = 1, nprizes = 1,
                   nrevealdif = 1, prize.index = NULL,
                   selectdec1 = "random", doorswitch = 1, 
                   montyselect = "random", verbose.results = FALSE){
@@ -33,16 +33,8 @@ mhsim <- function(niter = 100, seed = 1, ndoors = 3,
   }
   doorseq <- seq(1, ndoors, 1)
   for(i in 1:niter){
-    # pick prize
-    if(is.null(prize.index)){
-      which.prize <- sample(doorseq, nprize)
-    } else{
-      if(prize.index %in% doorseq){
-        which.prize <- prize.index
-      } else{
-        stop("Invalid prize index specified.")
-      }
-    }
+    # pick prize door index
+    which.prize <- sample(doorseq, nprizes)
     # run decision 1
     if(selectdec1 == "random"){
       dec1select <- sample(doorseq, ndec1)
@@ -54,13 +46,19 @@ mhsim <- function(niter = 100, seed = 1, ndoors = 3,
       }
     }
     # run montyselect
-    doorremain1 <- doorseq[!doorseq == dec1select]
-    nr <- length(doorremain1) - nrevealdif
+    doorremain1 <- doorseq[!doorseq == dec1select] # exclude player first selection
+    nr <- length(doorremain1) - nrevealdif # calculate the reveal difference
+    # validate reveal difference value
     if(nr < 0 | nr > length(doorremain1) - 1){
-      stop("Too many revealed doors. Decrease nrevealdif.")
+      stop("Too many doors specified for Monty to reveal. Increase `nrevealdif`.")
     }
     if(montyselect == "random"){
-      mdooroptions <- doorremain1[!doorremain1 %in% which.prize]
+      # if more than 1 prize, allow monty to reveal n - 1 prizes
+      if(length(which.prize) > 1){
+        mdooroptions <- doorremain1
+      } else{
+        mdooroptions <- doorremain1[!doorremain1 %in% which.prize]
+      }
       if(length(mdooroptions) < 2){
         mselect <- mdooroptions
       } else{
@@ -68,10 +66,9 @@ mhsim <- function(niter = 100, seed = 1, ndoors = 3,
       }
     }
     # run decision 2
-    doorexclude2 <- c(mselect, dec1select)
-    doorremain2 <- doorseq[!doorseq %in% doorexclude2]
+    # exclude monty's doors and decision 1 doors from switch options
+    doorremain2 <- doorseq[!doorseq %in% c(mselect, dec1select)]
     # parse switch likelihood
-    switchassess <- "switch"
     if(is.numeric(doorswitch) & doorswitch >= 0 & doorswitch <= 1){
       ssvar <- ifelse(doorswitch == 1, "switch", 
              sample(c(rep("switch", 100*doorswitch), 
@@ -79,7 +76,7 @@ mhsim <- function(niter = 100, seed = 1, ndoors = 3,
     } else{
       stop("Invalid doorswitch value.")
     }
-    # get decision 2
+    # evalue switch decision
     if(ssvar == "switch"){
       if(length(doorremain2) > 1){
         dec2select <- sample(doorremain2, ndec2)
@@ -90,7 +87,7 @@ mhsim <- function(niter = 100, seed = 1, ndoors = 3,
       dec2select <- dec1select
     }
     # evaluate results
-    lr <- c(lr, ifelse(dec2select == which.prize, "win", "loss"))
+    lr <- c(lr, ifelse(dec2select %in% c(which.prize), "win", "loss"))
     if(verbose.results){
       lv[[length(lv) + 1]] <- list("which.prize" = which.prize,
                                    "dec1select" = dec1select,
@@ -99,7 +96,6 @@ mhsim <- function(niter = 100, seed = 1, ndoors = 3,
                                    "dec2select" = dec2select)
     }
   }
-  
   if(verbose.results){
     return(list("results" = lr, "details" = lv))
   } else{
@@ -117,18 +113,28 @@ mhsim <- function(niter = 100, seed = 1, ndoors = 3,
 #' @param ndoors Quantity of doors per game.
 #' @param prize.index Door index for prize in each game.
 #' @param doorswitch Frequency (0 - 100%) with which player switches doors when given the option.
-#' @param nprize Total prizes per game.
 #' @return Vector of win fractions across simulations run, reflecting the numnber of iterations "won" over the total for that simulation.
 #' @export
 getfw = function(nsimulations = 5, niterations = 2, ndoors = 3, 
-                 prize.index = NULL, doorswitch = 1, nprize = 1){
+                 prize.index = NULL, doorswitch = 1,
+                 verbose.results = FALSE){
   fw <- c() # vector of win fractions across simulations
+  vr <- list() # results for verbose results option
   for(s in 1:nsimulations){
     lrs <- mhsim(seed = s, niter = niterations, ndoors = ndoors,
-                 prize.index = prize.index, doorswitch = doorswitch, nprize = nprize)
-    fw <- c(fw, length(which(lrs == "win"))/length(lrs))
+                 prize.index = prize.index, doorswitch = doorswitch,
+                 verbose.results = verbose.results)
+    if(verbose.results){
+      vr[[paste0(s)]] <- lrs
+    } else{
+      fw <- c(fw, length(which(lrs == "win"))/length(lrs))
+    }
   }
-  return(fw)
+  if(verbose.results){
+    return(vr)
+  } else{
+    return(fw)
+  }
 }
 
 
@@ -197,9 +203,9 @@ getlinedat <- function(ld, ribbontype = "sd", xtitle = "ndoors"){
 #' @param ylim Vector of 2 y-axis coordinates (min and max) or NULL.
 #' @return Line plot object.
 #' @export
-getlineplot <- function(ld, ptitle = "Plot title",
+getlineplot <- function(ld, ptitle = "Plot title", ribbontype = "sd",
                         xlim = NULL, ylim = NULL, xlab = "ndoors"){
-  dfp <- getlinedat(ld)
+  dfp <- getlinedat(ld, ribbontype = ribbontype)
   if(is.null(xlim) & is.null(ylim)){
     plp <- ggplot(dfp, aes(ndoors)) +
       geom_line(aes(y = fract.win), colour = "blue") + 
@@ -239,7 +245,7 @@ getprettyplots <- function(ld, topmain = "Top Title"){
     ggtitle("Ridge plots")
   
   # line plot
-  p3 <- getlineplot(ld, ptitle = "")
+  p3 <- getlineplot(ld, ptitle = "Line plot")
   
   # make the composite plot
   grid.arrange(p1, p2, p3, ncol = 3, top = topmain)
