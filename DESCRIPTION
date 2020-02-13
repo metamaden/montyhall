@@ -10,6 +10,8 @@ LazyData: true
 Imports:
 	ggplot2,
 	gridExtra,
-	ggridges
+	ggridges,
+	gganimate,
+	magick
 VignetteBuilder: knitr
 RoxygenNote: 7.0.2
