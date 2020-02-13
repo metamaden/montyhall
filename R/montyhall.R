@@ -295,7 +295,7 @@ getprettyplots <- function(ld, topmain = "Top Title"){
 #' @export 
 getprettygif <- function(ld, gifname = "mh_ndoors.gif",
                          plottype = c("composite_ndoors", 
-                                     "lineplots_winfractions")){
+                                     "lineplots_doorswitch")){
   require(gganimate)
   require(ggplot2)
   require(magick)
@@ -346,7 +346,7 @@ getprettygif <- function(ld, gifname = "mh_ndoors.gif",
     # store the composite gif
     image_write(new_gif, gifname)
   }
-  if(plottype == "lineplots_winfractions"){
+  if(plottype == "lineplots_doorswitch"){
     dfp <- getlinedat(ld[[1]], ribbontype = "sd")
     dfp$switchfreq <- names(ld)[1]
     for(i in 2:length(ld)){

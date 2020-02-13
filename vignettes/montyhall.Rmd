@@ -473,10 +473,16 @@ We've explored simulations of the Monty Hall Problem using a brute force approac
 
 This brute force simulation approach is one of many possible ways of sloving and exploring the Monty Hall Problem, and alternate approaches implementing Bayesian models could lead to further interesting insights. There are several other game conditions that could also be explored. These include changing the total number of doors with prizes, for games of at least 4 doors. Ultimately, I hope this investigation provided some useful code that equips you with a framework for investigating new problems through simulation.
 
-# Bonus section: animatimng sequential plots
+# Bonus plot animations
 
-In data science, more tools in our toolkit means more options for tackling future problems. For this reason, I'll briefly show how to turn some of the natural sequentional plots (e.g. win frequency distributions across `ndoors`) into animations. I've written the function `getprettygifs()`, which uses the R packages `gganimate` and `magick` and leans heavily on the helpful code provided [here](https://github.com/thomasp85/gganimate/wiki/Animation-Composition).
+In data science, more tools in our toolkit means more options for tackling future problems. For this reason, I'll briefly show how to turn some of the natural sequentional plots (e.g. win frequency distributions across `ndoors`) into animations. 
 
+I've written the function `getprettygifs()`, which uses the R packages `gganimate` and `magick` and leans heavily on the helpful code provided [here](https://github.com/thomasp85/gganimate/wiki/Animation-Composition) for the composite gif. 
+Passing options to `plottype` results in either a composite plot of the `ndoors` data (violin and line plots), or a line plot showing how `doorswitch` increase impacts win fraction across games varying `ndoors`.
 
+Let's use the plot gif function to generate the gif files. Note all the data is contained in the `ldat` object, where the final item shows win fraction in relation to door count when the player always switches.
 
-
+```{r mh_makegifs}
+getprettygif(ldat[[11]], plottype = "composite_ndoors", gifname = "mh_ndoors.gif")
+getprettygif(ldat, plottype = "lineplots_doorswitch", gifname = "mh_switchfreq.gif")
+```
