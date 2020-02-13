@@ -9,6 +9,7 @@ output: html_document
 # require(devtools); install_github("metamaden/montyhall")
 # library(montyhall)
 knitr::opts_chunk$set(eval = TRUE, echo = TRUE)
+library(montyhall)
 ```
 
 On a gameshow stage before you wait three closed doors, behind which have been deposited 2 goats and one prize, respectively. You are called on to pick a door to open and reveal either a goat or a prize. Monty Hall, the gameshow's host, proceeds to reveal a goat behind one of the two unpicked doors. You must then decide whether to stick with your original choice or switch to the final unpicked door. What do you do?
