@@ -22,7 +22,7 @@ getfw(
 
 \item{prize.index}{Door index for prize in each game.}
 
-\item{doorswitch}{Frequency (0 - 100%) with which player switches doors when given the option.}
+\item{doorswitch}{Frequency (0 - 100\%) with which player switches doors when given the option.}
 }
 \value{
 Vector of win fractions across simulations run, reflecting the numnber of iterations won over the total for that simulation.
