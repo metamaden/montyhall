@@ -1,9 +1,9 @@
 Package: montyhall
 Version: 1.0.0
-Title: Run and visualize simulations of the Monty Hall problem
+Title: Simulate and analyze the Monty Hall Problem.
 Authors@R: c(person(c("Sean", "Kenneth"), "Maden", role = c("cre", "aut"),
                     email = "maden@ohsu.edu"))
-Description: Access and analyze data from the recount methylation database.
+Description: Simulate and analyze the Monty Hall Problem. Observe the impact of changing problem rules and assumptions on win fractions across simluation runs and game iterations.
 License: Artistic-2.0
 Encoding: UTF-8
 LazyData: true
