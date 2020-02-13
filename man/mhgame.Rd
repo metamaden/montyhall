@@ -32,7 +32,7 @@ mhgame(
 
 \item{selectdec1}{Either "random" or a door index to choose for decision 1.}
 
-\item{doorswitch}{Some number between 0-100 (percent chance to switch). Defaults to 1 (100%).}
+\item{doorswitch}{Some number between 0-100 (percent chance to switch). Defaults to 1 (100 percent).}
 
 \item{montyselect}{Indices of doors Monty reveals between decisions 1 and 2.}
 
