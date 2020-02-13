@@ -40,7 +40,7 @@ mhsim(
 
 \item{doorswitch}{Some number between 0-100 (percent chance to switch). Defaults to 1 (100 percent).}
 
-\item{montyselect}{Indices of doors Monty reveals between decisions 1 and 2.}
+\item{montyselect}{Set indices of doors Monty reveals. Defaults to "random".}
 
 \item{verbose.results}{Whether to return iteration/game details alongside results.}
 }
