@@ -205,6 +205,7 @@ getlinedat <- function(ld, ribbontype = "sd", xtitle = "ndoors"){
 #' @export
 getlineplot <- function(ld, ptitle = "Plot title", ribbontype = "sd",
                         xlim = NULL, ylim = NULL, xlab = "ndoors"){
+  require(ggplot2)
   dfp <- getlinedat(ld, ribbontype = ribbontype)
   if(is.null(xlim) & is.null(ylim)){
     plp <- ggplot(dfp, aes(ndoors)) +
@@ -231,6 +232,10 @@ getlineplot <- function(ld, ptitle = "Plot title", ribbontype = "sd",
 #' @return Composite image of 3 ggplot2 plots.
 #' @export 
 getprettyplots <- function(ld, topmain = "Top Title"){
+  require(ggplot2)
+  require(ggridges)
+  require(gridExtra)
+  
   # fromat results data
   dfp <- getggdat(ld)
   
@@ -249,4 +254,44 @@ getprettyplots <- function(ld, topmain = "Top Title"){
   
   # make the composite plot
   grid.arrange(p1, p2, p3, ncol = 3, top = topmain)
+}
+
+getprettygif <- function(ld, topmain = "Top Title"){
+  require(gganimate)
+  require(ggplot2)
+  require(magick)
+  
+  # fromat results data
+  dfp <- getggdat(ld)
+  
+  g1 <- ggplot(dfp, aes("", fract.win, fill = ndoors)) + 
+    geom_violin() + theme_bw() +
+    transition_states(
+      ndoors,
+      transition_length = 1,
+      state_length = 1
+    ) +
+    enter_fade() + 
+    ease_aes('sine-in-out')
+  
+  dfp <- getlinedat(ld, ribbontype = ribbontype)
+  
+  g2 <- ggplot(dfp, aes(ndoors)) +
+    geom_point(aes(y = fract.win, color = "Red")) +
+    geom_line(aes(y = fract.win), colour = "blue") + 
+    geom_ribbon(aes(ymin = min, ymax = max), alpha = 0.2) +
+    transition_reveal(ndoors)
+  
+  # make composite 
+  # code from: https://github.com/thomasp85/gganimate/wiki/Animation-Composition
+  gif1 <- animate(g1, 200, 200, fps = 20)
+  gif2 <- animate(g2, 200, 200, fps = 20)
+  img1 <- image_read(gif1)
+  img2 <- image_read(gif2)
+  new_gif <- image_append(c(img1[1], img2[1]))
+  for(i in 2:100){
+    combined <- image_append(c(img1[i], img2[i]))
+    new_gif <- c(new_gif, combined)
+  }
+  new_gif
 }

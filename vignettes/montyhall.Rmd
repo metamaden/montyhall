@@ -209,9 +209,11 @@ On a gameshow stage before you wait three closed doors, behind which have been d
 
 This is the [Monty Hall Problem](https://en.wikipedia.org/wiki/Monty_Hall_problem), a kind of logic puzzle involving conditional probability. Assuming you value prizes over goats, it can be readily shown that you should *always* switch whichever door you've initially picked to maximize your success probability. If you stick with your first choice, your success probability never exceeds 1 out of 3 tries, while switching increases your probability to 2 out of 3, a pretty substantial increase!
 
-It's telling that the Monty Hall Problem still serves as a good brain teaser to this day. Given its simple rules and decision parameters, it's a problem that lends itself to programmatic simulation. I wrote a script to allow exploration of this problem. The full code with plotting utilities is available at the project's GitHub repo. We can use this simulation to illustrate some features and ways of thinking about the problem, including better ways of intuiting the answer should we forget!
+It's telling that the Monty Hall Problem still serves as a good brain teaser to this day. Given its simple rules and decision parameters, it's a problem that lends itself to programmatic simulation. In this post, I wanted to show how I wrote a simulation function that captures the basic or "classical" rules of the Monty Hall Problem while allowing for exploration of how outcomes change as conditions and rule definitions change. Hopefully I can inspire you to think generally about opportunities to conceptualize problems in simulations with useful code.
 
-Formulating the game
+I've deployed the code with a strictly reproducible vignette in the `montyhall` R package, available on GitHub here. Deploying work as an R package can be extremely worthwhile in production level data science projects. Note that I'm knowingly omitting a few "best practices" in favor of more clearly written code, but there are [many](https://cran.r-project.org/submit.html) [great](https://www.bioconductor.org/developers/package-submission/) [places](https://www.bioconductor.org/developers/package-guidelines/) to learn about common package standards. In this package, I've included my simulation function, `mhsim()`, and a wrapper function `getfw()` that returns win frequencies across simulations. These functions only make use of base R without added dependencies. I've also included several visualization utilities functions that make use of some stellar R packages as dependencies, including `ggplot2`. We'll take a look at the functions and some scripts as we explore Monty's doors below.
+
+# Formulating the game
 
 We can call the typical formulation of the game, as above, the "canonical" or "classical" formulation. This has the following attributes or rules:
 
@@ -353,7 +355,7 @@ I've also allowed for changing the frequency with which the player switches door
 
 One of the more useful [mnemonic devices](https://en.wikipedia.org/wiki/Mnemonic) I've encountered for intuiting the answer to the Monty Hall Problem is to increase the number of doors. Maybe we're unsure if switching doors will increase our odds when there are just 3 doors. But if there are 100 doors, and Monty reveals goats behind 98 of them, it's much clearer that switching will increase our chances of winning. We can quantitatively visualize this intuitively useful device with the simulation code. 
 
-Let's now generate and time the results from running 100 simulations of 100 iterations each, varying `ndoors` from 3 to 100 with otherwise classical rule parameters.
+Let's now generate and time the results from running 100 simulations of 100 iterations each, varying `ndoors` from 3 to 103 by 10, with otherwise classical rule parameters.
 
 ```{r mh_run_ndoors-sim}
 # get win frequencies from varying ndoors
