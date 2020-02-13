@@ -25,7 +25,7 @@ getfw(
 \item{doorswitch}{Frequency (0 - 100%) with which player switches doors when given the option.}
 }
 \value{
-Vector of win fractions across simulations run, reflecting the numnber of iterations "won" over the total for that simulation.
+Vector of win fractions across simulations run, reflecting the numnber of iterations won over the total for that simulation.
 }
 \description{
 Wrapper to compute win frequencies across simulations.
