@@ -4,12 +4,14 @@
 \alias{getlinedat}
 \title{Get results data formatted for ggplot2 line plots.}
 \usage{
-getlinedat(ld, ribbontype = "sd", xtitle = "ndoors")
+getlinedat(ld, ribbontype = c("sd", "minmax"), xtitle = "ndoors")
 }
 \arguments{
 \item{ld}{List of win fractions.}
 
 \item{ribbontype}{How to calculate gray ribbon ovelay. Either "sd" for standard deviation, or "minmax" for min and max of run.}
+
+\item{xtitle}{Name of variable to be in x-axis of line plot.}
 }
 \value{
 Formatted dataset.

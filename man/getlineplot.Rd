@@ -7,10 +7,11 @@
 getlineplot(
   ld,
   ptitle = "Plot title",
-  ribbontype = "sd",
+  ribbontype = c("sd", "minmax"),
   xlim = NULL,
   ylim = NULL,
-  xlab = "ndoors"
+  xlab = "ndoors",
+  ylab = "fract.win"
 )
 }
 \arguments{
@@ -18,9 +19,15 @@ getlineplot(
 
 \item{ptitle}{Plot main title from `ggtitle()`.}
 
+\item{ribbontype}{Metric to calculate ribbon overlay (either "sd" or "minmax").}
+
 \item{xlim}{Vector of 2 x-axis coordinates (min and max), or NULL.}
 
 \item{ylim}{Vector of 2 y-axis coordinates (min and max) or NULL.}
+
+\item{xlab}{Label for x-axis.}
+
+\item{ylab}{Label for y-axis.}
 }
 \value{
 Line plot object.

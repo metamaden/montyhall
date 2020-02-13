@@ -207,11 +207,11 @@ getprettyplots <- function(ld, topmain = "Top Title"){
 
 On a gameshow stage before you wait three closed doors, behind which have been deposited 2 goats and one prize, respectively. You are called on to pick a door to open and reveal either a goat or a prize. Monty Hall, the gameshow's host, proceeds to reveal a goat behind one of the two unpicked doors. You must then decide whether to stick with your original choice or switch to the final unpicked door. What do you do?
 
-This is the [Monty Hall Problem](https://en.wikipedia.org/wiki/Monty_Hall_problem), a kind of logic puzzle involving conditional probability. Assuming you value prizes over goats, it can be readily shown that you should *always* switch whichever door you've initially picked to maximize your success probability. If you stick with your first choice, your success probability never exceeds 1 out of 3 tries, while switching increases your probability to 2 out of 3, a pretty substantial increase!
+This is the [Monty Hall Problem](https://en.wikipedia.org/wiki/Monty_Hall_problem), a kind of logic puzzle involving conditional probability. Assuming you value prizes over goats, and lack prior knowledge about which door has the prize, it can be readily shown that *always* switching doors increases your win probability. If you stick with your first choice, your success probability never exceeds 1 out of 3 tries, while switching increases your probability to 2 out of 3, a pretty substantial increase!
 
 It's telling that the Monty Hall Problem still serves as a good brain teaser to this day. Given its simple rules and decision parameters, it's a problem that lends itself to programmatic simulation. In this post, I wanted to show how I wrote a simulation function that captures the basic or "classical" rules of the Monty Hall Problem while allowing for exploration of how outcomes change as conditions and rule definitions change. Hopefully I can inspire you to think generally about opportunities to conceptualize problems in simulations with useful code.
 
-I've deployed the code with a strictly reproducible vignette in the `montyhall` R package, available on GitHub here. Deploying work as an R package can be extremely worthwhile in production level data science projects. Note that I'm knowingly omitting a few "best practices" in favor of more clearly written code, but there are [many](https://cran.r-project.org/submit.html) [great](https://www.bioconductor.org/developers/package-submission/) [places](https://www.bioconductor.org/developers/package-guidelines/) to learn about common package standards. In this package, I've included my simulation function, `mhsim()`, and a wrapper function `getfw()` that returns win frequencies across simulations. These functions only make use of base R without added dependencies. I've also included several visualization utilities functions that make use of some stellar R packages as dependencies, including `ggplot2`. We'll take a look at the functions and some scripts as we explore Monty's doors below.
+I've deployed the code with a strictly reproducible vignette in the `montyhall` R package, available on GitHub [here](https://github.com/metamaden/montyhall). Deploying work as an R package can be extremely worthwhile in production level data science projects. Note that I'm knowingly omitting a few "best practices" in favor of more clearly written code, but there are [many](https://cran.r-project.org/submit.html) [great](https://www.bioconductor.org/developers/package-submission/) [places](https://www.bioconductor.org/developers/package-guidelines/) to learn about common package standards. In this package, I've included my simulation function, `mhsim()`, and a wrapper function `getfw()` that returns win frequencies across simulations. These functions only make use of base R without added dependencies. I've also included several visualization utilities functions that make use of some stellar R packages as dependencies, including `ggplot2`. We'll take a look at the functions and some scripts as we explore Monty's doors below.
 
 # Formulating the game
 
@@ -223,9 +223,13 @@ We can call the typical formulation of the game, as above, the "canonical" or "c
 4. The player decides whether to stick with their initial choice (step 2) or switch to the last unpicked door.
 5. The final player-selected door is revealed to be either a goat or the prize.
 
-When we plan how to execute a simulation in code, pseudocode can be a helpful tool. This is an abstraction of the task that is programming language- and code-agnostic. The pseudocode to carry out the classical problem would look something like:
+Note a few characteristics of the above. First, we've framed the player's second decision as "whether to switch", though I'd argue the natural naive interpretation is we're merely picking doors twice more or less at random. Second, there's randomness implied in steps 2 and 3, where the player picks an initial door at random, and 2/3rds of the time Monty chooses randomly between one of two goats to reveal. 
 
-* function do Monty_Hall_Simulation:
+In terms of semantics, I'll consider certain parameters (e.g. 3 total doors, 1 prize, etc) as the set of "classical" game parameters or rules. Also, I've chosen to assess outcomes using game win frequencies, though I could just as easily have assessed game loss frequencies. But each concept is related in this binary state problem of win or lose, where knowing one outcome determines the other (e.g. a win frequency of 0.66 implies a lose frequency of 1 - 0.66 = 0.34, etc.).
+
+To simulate the problem in code, pseudocode can be a helpful tool for visualizing the objective. Pseudocode is simply a type of abstraction for programming that is programming language agnostic. For the Monty Hall simulation, the initial pseudocode might be something like:
+
+* define Monty_Hall_Game:
   + get door_indices from 1:ndoors
   + assign prize_door
   + randomize player_door_index1
@@ -234,19 +238,20 @@ When we plan how to execute a simulation in code, pseudocode can be a helpful to
   + get player_door_index2 as remaining_door_index
   + if player_door_index2 == prize_door, return "win", else "lose"
 
-Following the tasks from this pseudocode logic, I wrote the simulation function.
+* function do Monty_Hall_Simulation:
+  + do Monty_Hall_Game up to num_iterations
+  
+I've shown two functions above. In programming, it's often preferred to break a problem down into discrete and smaller units that achieve distinct objectives. This can make debugging and unit testing (a lot) easier. Here, I've written a function to simulate a single game, and another to carry out a series of game iterations. Ultimately, I also wrapped the second function inot a third `getfw()` function, to derive win frequencies across simulations. Let's look at the final simulation function in greater detail below.
 
 # The simulation function
 
-The simulation function I wrote, `mhsim()`, runs iterations of the Monty Hall problem with various allowances for changing underlying parameters. By default, the code will run game simulations or "iterations" up to the value of `niter` using the classic problem parameters above.
+I've written 3 functions that allow us to complete Monty Hall Problem simulations in reasonable time, and allow for changing various underlying rules. First, the `mhgame()` function runs a single game or "game iteration." Second, `mhsim()` executes a series of game iterations that defines a simulation run, up to N = `niter` total game iterations, where every such series uses a single seed for reproducible randomization (more on that below). Finally, `getfw()` takes the output from `mhsim()`, a list of game outcome vectors (either "win" or "loss"), and returns a single vector of win fractions.
 
-The arguments `niter` and `seed` are important to consider even when running the simulation function with defaults otherwise. The `niter` argument specifies the number of game iterations to simulate, while setting `seed` specifies the value passed to `set.seed()`. Setting the seed allows for *exact* replication of run results with the same seed, an important component for operations implementing randomness. As already mentioned, the simulation assumes random player selection in step 2 and Monty selection in step 3, with other possibilities for randomness including the player door switch frequency in step 4. I implemented randomization with the `sample` R function.
+Importantly, `mhsim()` [vectorizes](https://en.wikipedia.org/wiki/Automatic_vectorization) game simulations with `lapply()`. Vectorization is a great way to speed up repetitive tasks in coding, and can be crucial for especially memory-taxing or large problems. The `lapply` function is a member of the `apply` [family](https://www.rdocumentation.org/packages/base/versions/3.6.2/topics/lapply) of R functions, which have been specialized for different varieties of vectorization tasks. Some other useful ways of speeding up your code can include parallelization of tasks with [multithreading](https://en.wikipedia.org/wiki/Thread_(computing)#Multithreading). However, note that some parallelization solutions aren't strictly replicable and often require one or several additional dependencies. It's important to tailor the complexity a solution to that of its problem and avoid premature- or over-optimization. For our purposes, running thousands of Monty Hall simulations isn't memory intensive, and our operations below will all complete in about a minute or less.
 
-Iterations are currently implemented in a `for` loop. This could potentially be improved with parallelization and [multithreading](https://en.wikipedia.org/wiki/Thread_(computing)#Multithreading) as with the [`pools`](https://cran.r-project.org/web/packages/pool/index.html) or [snow](https://cran.r-project.org/web/packages/snow/index.html) R packages, though there's a bit of a tradeoff. However convenient parallelization is made with specilized packages, this implies adding an extra dependency to the package and a bit more code. If the problem in question were considerably more memory taxing than the Monty Hall problem, this could justify parallelization. 
+The arguments `niter` and `seed` in `mhsim()` should be considered for each run. The `niter` argument specifies the number of game iterations to simulate, while setting `seed` specifies the value passed to `set.seed()`. Setting the seed allows for *exact replication* of run results with the same seed, an important component for operations implementing randomness. As already mentioned, the simulation assumes random player selection in step 2 and Monty selection in step 3, with other possibilities for randomness including the player door switch frequency in step 4. I implemented randomization with the `sample` R function.
 
-Importantly, parallelization breaks strict replicability because sub-tasks or jobs are returned in the order they finish. Practically, this means the ordering of game outcomes across iterations would change each time the function ran, even with the same `seed`. While this point is made somewhat moot since we're primarily interested in the win fraction, it could be a severe limitation in other settings.
-
-To show how the simulation function achieves the tasks from the pseudocode, let's break down the steps of each iteration. First, the index of the prize door is specified.
+To show how `mhgame()` completes the above pseudocode tasks, let's break down the steps of each game iteration. First, the index of the prize door is specified.
 
 ```{r mh_setprize, eval = FALSE}
 which.prize <- sample(doorseq, nprize)
@@ -351,7 +356,7 @@ The first condition we'll explore is the number of doors. I've allowed for the d
 
 I've also allowed for changing the frequency with which the player switches doors with `doorswitch`. The default value of 1 means the player switches 100% of the time, and setting this a lower value between 0 and 1 means decreasing the switch frequency. I did this by implementing `sample()` to randomly select from what's essentiallt a weighted binomial distribution (e.g. possible outcomes are binary but each outcome has a distinct weight). If `doorswitch = 0.2`, we parse player decision by sampling from a distribution where 20% of options are "switch" and (100 - 20 = ) 80% of options are "stay".
 
-# Many doors, and an extrapolation mnemonic
+# Many doors as an extrapolation mnemonic
 
 One of the more useful [mnemonic devices](https://en.wikipedia.org/wiki/Mnemonic) I've encountered for intuiting the answer to the Monty Hall Problem is to increase the number of doors. Maybe we're unsure if switching doors will increase our odds when there are just 3 doors. But if there are 100 doors, and Monty reveals goats behind 98 of them, it's much clearer that switching will increase our chances of winning. We can quantitatively visualize this intuitively useful device with the simulation code. 
 
@@ -403,12 +408,14 @@ We'll lean on these line plot representations using distribution standard deviat
 
 Let's now observe the impact of player switch frequency, or how often the player switches from their initial door selection. As mentioned, this is set by passing the decimal switch frequency to the `doorswitch` argument, which then parses player choice for each iteration from a weighted binomial distribution.
 
-Let's run 10 simulations varying the switch frequency from 0% to 100% in increments of 10%. I'll store the results plots in the `plist` object, then make a composite plot of the 10 results plots. Note I've also set the x- and y-axis min and max values to be the same in `getlineplot` so that visual comparison is easier.
+Let's run 10 simulations varying the switch frequency from 0% to 100% in increments of 10%. I'll store the results data in `ldat` and plots in `plist` object, then make a composite plot of the 10 results plots. Note I've also set the x- and y-axis min and max values to be the same in `getlineplot` so that visual comparison is easier.
 
 ```{r mh_switchfreq_sim}
 # get fwin dist across ndoors
 plist <- list()
 sfreq <- seq(0, 1, 0.1)
+t1 <- Sys.time()
+ldat <- list()
 for(s in sfreq){
   simi = 100; iteri = 100
   ndoorl <- seq(3, 103, 10)
@@ -419,19 +426,25 @@ for(s in sfreq){
     lnd[[paste0(nd)]] <- fw
   }
   plist[[paste0(s)]] <- getlineplot(lnd, ptitle = paste0("S.F. = ", s),
-                                    xlim = c(0, 100), ylim = c(0, 1))
-  message(s)
+                                    xlim = c(0, 100), ylim = c(0, 1),
+                                    xlab = "", ylab = "")
+  ldat[[paste0(s)]] <- lnd
+  # message(s)
 }
+tdif <- Sys.time() - t1
 ```
 
-The composite plot is then generated from the `plist` plots list as follows.
+All runs completed in `r round(as.numeric(tdif), 2)` minutes. The composite plot is then generated from the `plist` plots list as follows.
 
 ```{r mh_switchfreq_10sim}
+pdf("mh_switchfreq.pdf", 10, 6)
 grid.arrange(plist[[1]], plist[[2]], plist[[3]],
              plist[[4]], plist[[5]], plist[[6]],
              plist[[7]], plist[[8]], plist[[9]],
              plist[[10]],
-             ncol = 5)
+             ncol = 5, 
+             bottom = "Number of Doors", left = "Win Fraction")
+dev.off()
 ```
 
 Across run sets of each door switch frequency, there's a clear transition from an approximate negative power function (e.g. x ^ -1, top leftmost plot), to something approaching a fractional power function (e.g. x ^ 1/2, bottom rightmost plot). 
@@ -459,3 +472,11 @@ dev.off()
 We've explored simulations of the Monty Hall Problem using a brute force approach. By exploring changes in win frequency across varying problem conditions, we've proven that always switching doors will increase player win frequency. We've also quantitatively shown how improved win frequency converges as the number of doors is increased. Finally, we explored the role of certain conditions to the problem itself. Unsuprisingly, as player switch frequency increases, so too does win frequency. In so doing, we showed how switch frequency increase leads to different win frequency improvements across doors. 
 
 This brute force simulation approach is one of many possible ways of sloving and exploring the Monty Hall Problem, and alternate approaches implementing Bayesian models could lead to further interesting insights. There are several other game conditions that could also be explored. These include changing the total number of doors with prizes, for games of at least 4 doors. Ultimately, I hope this investigation provided some useful code that equips you with a framework for investigating new problems through simulation.
+
+# Bonus section: animatimng sequential plots
+
+In data science, more tools in our toolkit means more options for tackling future problems. For this reason, I'll briefly show how to turn some of the natural sequentional plots (e.g. win frequency distributions across `ndoors`) into animations. I've written the function `getprettygifs()`, which uses the R packages `gganimate` and `magick` and leans heavily on the helpful code provided [here](https://github.com/thomasp85/gganimate/wiki/Animation-Composition).
+
+
+
+
