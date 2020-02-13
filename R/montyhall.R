@@ -290,7 +290,7 @@ getprettyplots <- function(ld, topmain = "Top Title"){
 #' Generates a gif of composite plot animations for violin and line plots. Currently supports results from the `ndoors` experiment.
 #' @param ld List of win fractions.
 #' @param gifname Name of gif file to store.
-#' @param plottype Type of plots for gif animation (either "composite_ndoors" or "lineplots_winfractions").
+#' @param plottype Type of plots for gif animation (either "composite_ndoors" or "lineplots_doorswitch").
 #' @return Saves a gif file of the composite plots.
 #' @export 
 getprettygif <- function(ld, gifname = "mh_ndoors.gif",

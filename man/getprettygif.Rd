@@ -7,7 +7,7 @@
 getprettygif(
   ld,
   gifname = "mh_ndoors.gif",
-  plottype = c("composite_ndoors", "lineplots_winfractions")
+  plottype = c("composite_ndoors", "lineplots_doorswitch")
 )
 }
 \arguments{
@@ -15,7 +15,7 @@ getprettygif(
 
 \item{gifname}{Name of gif file to store.}
 
-\item{plottype}{Type of plots for gif animation (either "composite_ndoors" or "lineplots_winfractions").}
+\item{plottype}{Type of plots for gif animation (either "composite_ndoors" or "lineplots_doorswitch").}
 }
 \value{
 Saves a gif file of the composite plots.
