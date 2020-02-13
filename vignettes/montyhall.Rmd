@@ -7,9 +7,7 @@ output: html_document
 
 ```{r setup, include = FALSE, eval = TRUE}
 # require(devtools); install_github("metamaden/montyhall")
-
 # library(montyhall)
-
 knitr::opts_chunk$set(eval = TRUE, echo = TRUE)
 ```
 
@@ -293,7 +291,7 @@ Let's study the impact of varying the number of simulations and iterations per s
 
 Let's generate the simulation data with the 3 parameter sets, and time it. Note we'll use a `for` loop to iterate over vectors of 3 values for simulations and iterations, using the given index to point to the parameters for each run.
 
-```{r mhbasic1}
+```{r mh_classic_3runs}
 # parameter sets
 simv <- c(5, 100, 1000)
 iterv <- c(2, 100, 1000)
@@ -310,7 +308,7 @@ The 3 runs completed in `r round(tdif, 0)` seconds. With so few iterations and s
 
 Let's now show the composite plot of win frequency distributions across the 3 runs. Note I've stored the run info (number of simulations and iterations per run) in the list names, and we can unpack these with regular exressions using `gsub()` for the respective plot titles. We'll use `par` to manage the plot output and formatting, where `nrow = c(1, 3)` specifies the plot output conforms to a matrix of 1 row and 3 columns, and `oma = c(3, 3, 3, 1)` adds outer margin whitespace for axis labels. We'll remove redundant axis labels for each plot and add these back with `mtext()`.
 
-```{r mhbasic_hist}
+```{r mh_classic_3hist}
 pdf("mh_3runs.pdf", 10, 4)
 # format image output
 par(mfrow = c(1, 3), oma = c(3, 3, 3, 1))
