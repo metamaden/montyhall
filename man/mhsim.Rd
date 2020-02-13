@@ -8,13 +8,13 @@ mhsim(
   niter = 100,
   seed = 1,
   ndoors = 3,
-  nprize = 1,
   ndec1 = 1,
   ndec2 = 1,
+  nprizes = 1,
   nrevealdif = 1,
   prize.index = NULL,
   selectdec1 = "random",
-  doorswitch = "always",
+  doorswitch = 1,
   montyselect = "random",
   verbose.results = FALSE
 )
@@ -26,11 +26,11 @@ mhsim(
 
 \item{ndoors}{Total quantity of doors for game simulations.}
 
-\item{nprize}{Total number of prizes for game simulations.}
-
 \item{ndec1}{Door index to *always* choose in decision 1.}
 
 \item{ndec2}{Door index to *always* choose in decision 2.}
+
+\item{nprizes}{Total number of prizes for game simulations.}
 
 \item{nrevealdif}{Number of doors Monty does not reveal between player decisions 1 and 2.}
 
@@ -38,7 +38,7 @@ mhsim(
 
 \item{selectdec1}{Either "random" or a door index to choose for decision 1.}
 
-\item{doorswitch}{Whether the player switches their door choice. Either "always" (100%) or some number between 0-1.}
+\item{doorswitch}{Some number between 0-100 (percent chance to switch). Defaults to 1 (100%).}
 
 \item{montyselect}{Indices of doors Monty reveals between decisions 1 and 2.}
 

@@ -4,10 +4,23 @@
 \alias{getlineplot}
 \title{Generate a ggplot2 line plot.}
 \usage{
-getlineplot(ld)
+getlineplot(
+  ld,
+  ptitle = "Plot title",
+  ribbontype = "sd",
+  xlim = NULL,
+  ylim = NULL,
+  xlab = "ndoors"
+)
 }
 \arguments{
 \item{ld}{List of win fractions.}
+
+\item{ptitle}{Plot main title from `ggtitle()`.}
+
+\item{xlim}{Vector of 2 x-axis coordinates (min and max), or NULL.}
+
+\item{ylim}{Vector of 2 y-axis coordinates (min and max) or NULL.}
 }
 \value{
 Line plot object.
