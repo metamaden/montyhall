@@ -186,7 +186,7 @@ tdif <- Sys.time() - t1
 pref <- getlineplot(lnd, ptitle = "Canonical rules, varying doors")
 ```
 
-All runs completed in `r round(tdif, 0)` seconds. Let's visualize results in a few different ways. First, we'll generate [violin plots](https://en.wikipedia.org/wiki/Violin_plot), a powerful way of visualizing data in a relatively distribution-agnostic manner (and thus typically better than boxplots). Next, we'll use overlapping density plots, variously called "ridge plots" or "joyplots" after their use in the iconic visualization of CP 1919 pulsar's radio waves on the cover of Joy Division's Unknown Pleasures record ([awesome!](https://en.wikipedia.org/wiki/Unknown_Pleasures#Artwork_and_packaging)). Finally, we'll show line plots of run means with confidence boundaries. While the first two plots show the exact data distributions, we'll focus on the third line plots for their economy of space and meaningful reflection of simulation distribution properties.
+All runs completed in `r round(as.numeric(tdif), 0)` seconds. Let's visualize results in a few different ways. First, we'll generate [violin plots](https://en.wikipedia.org/wiki/Violin_plot), a powerful way of visualizing data in a relatively distribution-agnostic manner (and thus typically better than boxplots). Next, we'll use overlapping density plots, variously called "ridge plots" or "joyplots" after their use in the iconic visualization of CP 1919 pulsar's radio waves on the cover of Joy Division's Unknown Pleasures record ([awesome!](https://en.wikipedia.org/wiki/Unknown_Pleasures#Artwork_and_packaging)). Finally, we'll show line plots of run means with confidence boundaries. While the first two plots show the exact data distributions, we'll focus on the third line plots for their economy of space and meaningful reflection of simulation distribution properties.
 
 To generate these visualizations, I've wrapped the code inot the several plotting utilities functions `getggdat()` (format data for violin and ridge plots), `getlinedat` (format data for line plots), `getlineplot()` (generates line plot), `getprettyplots()` (generate composite of 3 ggplot2 plot types). I won't exhaustively describe these, but will note the code may be generally useful if you're looking for a generalizable way of plotting data for your own data science project. This code makes use of the supremely awesome R packages [`ggplot2`](https://cran.r-project.org/web/packages/ggplot2/index.html) (powerful plotting functions and meta syntax), [`gridExtra`](https://cran.r-project.org/web/packages/gridExtra/index.html) (ridge plot options),
 [`ggridges`](https://cran.r-project.org/web/packages/ggridges/index.html) (managing plot outputs and composite plotting).
@@ -203,12 +203,18 @@ This quantitatively shows the magnitude of win likelihood increase with `ndoors`
 We'll focus on the line plot visualizations below, but I've allowed for two plot types with the `ribbontype` argument. This defines the gray-colored confidence visualization to be either the standard deviation of run distribution (if `sd`, the default), or the minimum and maximum win frequencies observed (if `minmax`). Let's show these side-by-side to illustrate the difference.
 
 ```{r mh_classic_lineplotcompare}
-pclassic1 <- getlineplot(lnd, ptitle = "Std. dev. overlay", ribbontype = "sd")
-pclassic2 <- getlineplot(lnd, ptitle = "Min. max. overlay", ribbontype = "minmax")
+pclassic1 <- getlineplot(lnd, ptitle = "Std. dev. overlay", 
+                         ribbontype = "sd", ylim = c(0.5, 1), xlim = c(0, 105), ylab = "", xlab = "")
+pclassic2 <- getlineplot(lnd, ptitle = "Min. max. overlay", 
+                         ribbontype = "minmax", ylim = c(0.5, 1), 
+                         xlim = c(0, 105), 
+                         ylab = "", xlab = "")
 
 # pdf("mh_2lineplots.pdf", 5, 3)
 png("mh_2lineplots.png", width = 5, height = 3, units = "in", res = 400)
-grid.arrange(pclassic1, pclassic2, top = "Ribbon overlay comparison", ncol = 2)
+grid.arrange(pclassic1, pclassic2, top = "Ribbon overlay comparison",
+             bottom = "Number of Doors", left = "Win Fraction",
+             ncol = 2)
 dev.off()
 ```
 
