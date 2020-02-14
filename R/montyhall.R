@@ -237,13 +237,13 @@ getlineplot <- function(ld, ptitle = "Plot title", ribbontype = c("sd", "minmax"
   require(ggplot2)
   dfp <- getlinedat(ld, ribbontype = ribbontype)
   if(is.null(xlim) & is.null(ylim)){
-    plp <- ggplot(dfp, aes(ndoors)) +
+    plp <- ggplot2::ggplot(dfp, aes(ndoors)) +
       geom_line(aes(y = fract.win), colour = "blue") + 
       geom_ribbon(aes(ymin = min, ymax = max), alpha = 0.2) +
       theme_bw() + ggtitle(ptitle) + xlab(xlab) + ylab(ylab)
   }
   if(!is.null(xlim) & !is.null(ylim)){
-    plp <- ggplot(dfp, aes(ndoors)) +
+    plp <- ggplot2::ggplot(dfp, aes(ndoors)) +
       geom_line(aes(y = fract.win), colour = "blue") + 
       geom_ribbon(aes(ymin = min, ymax = max), alpha = 0.2) +
       theme_bw() + ggtitle(ptitle) +
@@ -269,12 +269,12 @@ getprettyplots <- function(ld, topmain = "Top Title"){
   dfp <- getggdat(ld)
   
   # violin plots
-  p1 <- ggplot(dfp, aes(x = ndoors, y = fract.win, fill = ndoors)) +
+  p1 <- ggplot2::ggplot(dfp, aes(x = ndoors, y = fract.win, fill = ndoors)) +
     geom_violin() + theme_bw() + theme(legend.position = "none") +
     ggtitle("Violin plots")
   
   # ridge plots
-  p2 <- ggplot(dfp, aes(x = fract.win, y = ndoors, fill = ndoors)) +
+  p2 <- ggplot2::ggplot(dfp, aes(x = fract.win, y = ndoors, fill = ndoors)) +
     geom_density_ridges() + theme_bw() + theme(legend.position = "none") +
     ggtitle("Ridge plots")
   
@@ -282,7 +282,7 @@ getprettyplots <- function(ld, topmain = "Top Title"){
   p3 <- getlineplot(ld, ptitle = "Line plot")
   
   # make the composite plot
-  grid.arrange(p1, p2, p3, ncol = 3, top = topmain)
+  gridExtra::grid.arrange(p1, p2, p3, ncol = 3, top = topmain)
 }
 
 #' Generate a gif composite of violin and line plot animations
@@ -306,7 +306,7 @@ getprettygif <- function(ld, gifname = "mh_ndoors.gif",
     dfp1 <- getggdat(ld)
     
     # get gif objects from plot objects
-    g1 <- ggplot(dfp1, aes("", fract.win, fill = ndoors)) + 
+    g1 <- ggplot2::ggplot(dfp1, aes("", fract.win, fill = ndoors)) + 
       geom_violin() + theme_bw() + 
       xlab("") + ylab("Win Fraction") +
       theme(legend.position = "none") +
@@ -320,7 +320,7 @@ getprettygif <- function(ld, gifname = "mh_ndoors.gif",
       enter_fade() + 
       ease_aes('sine-in-out')
     
-    g2 <- ggplot(dfp2, aes(ndoors)) +
+    g2 <- ggplot2::ggplot(dfp2, aes(ndoors)) +
       geom_point(aes(y = fract.win, color = "Red")) +
       geom_line(aes(y = fract.win), colour = "blue") + 
       xlab("Number of Doors") + ylab("") + 
@@ -356,7 +356,7 @@ getprettygif <- function(ld, gifname = "mh_ndoors.gif",
     }
     dfp$switchfreq <- as.numeric(dfp$switchfreq)
     # get plot animation data
-    plp <- ggplot(dfp, aes(ndoors)) +
+    plp <- ggplot2::ggplot(dfp, aes(ndoors)) +
       geom_line(aes(y = fract.win), colour = "blue") +
       geom_ribbon(aes(ymin = min, ymax = max), alpha = 0.2) +
       theme_bw() + xlab("Number of Doors") + ylab("Win Fraction") +

@@ -12,6 +12,8 @@ Imports:
 	gridExtra,
 	ggridges,
 	gganimate,
-	magick
+	magick,
+	transformr,
+	knitr
 VignetteBuilder: knitr
 RoxygenNote: 7.0.2
